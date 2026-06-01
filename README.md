@@ -35,6 +35,16 @@ A locally-hosted web application for tracking, searching, and planning equipment
 
 ---
 
+## Screenshots
+
+**Item Database** — searchable, filterable table with sortable columns and a stat-filter sidebar
+![Item Database](screenshots/items.png)
+
+**Item Detail** — full stats, flags, class restrictions, special affects, and source info
+![Item Detail](screenshots/item_detail.png)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

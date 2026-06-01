@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}Identify Import — RoD DB{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  {# ── Paste panel ── #}
+  <div class="col-lg-5 col-xl-4">
+    <h6 class="mb-2">Paste Identify Output</h6>
+    <form method="post" action="{{ url_for('import_identify') }}" id="pasteForm">
+      <textarea name="identify_text" class="form-control font-monospace mb-2"
+                rows="14" placeholder="Paste the full 'identify' output here…
+Example:
+Object 'Eye of the Raven' is infused with your magic...
+It is a level 43 armor, weight 1.
+Locations it can be worn:  eyes
+Special properties:  none
+This armor has a gold value of 0.
+Armor class is 15 of 15.
+Affects damage roll by 3.
+Affects hp by 20.
+Affects affected_by by detect_invis.">{{ raw_text }}</textarea>
+
+      {% if error %}
+        <div class="alert alert-danger py-2 small">{{ error }}</div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary btn-sm w-100">
+        <i class="bi bi-magic me-1"></i> Parse
+      </button>
+    </form>
+
+    <hr class="border-secondary my-3">
+    <div class="text-secondary small">
+      <p class="mb-1"><strong>What gets parsed automatically:</strong></p>
+      <ul class="mb-2 ps-3">
+        <li>Name, level, type, weight</li>
+        <li>Wear location</li>
+        <li>Item flags (glow, hum, magic, etc.)</li>
+        <li>Class restrictions (anti-X tokens)</li>
+        <li>Gold value, armor class value</li>
+        <li>All <code>Affects X by Y</code> stat lines</li>
+        <li>Special affects (detect_invis, sneak, saves, resists…)</li>
+        <li>Weapon damage (XdY format)</li>
+      </ul>
+      <p class="mb-0"><strong>You fill in:</strong> mob source, area, race restrictions, and review anything the parser might have missed.</p>
+    </div>
+  </div>
+
+  {# ── Review / Save form ── #}
+  {% if parsed %}
+  <div class="col-lg-7 col-xl-8">
+    <h6 class="mb-2 d-flex align-items-center gap-2">
+      Review &amp; Save
+      <span class="badge bg-success">Parsed</span>
+    </h6>
+
+    <form method="post" action="{{ url_for('save_identify') }}">
+      <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header py-2 fw-bold small">Identity</div>
+        <div class="card-body p-3">
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <label class="form-label small mb-0">Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control form-control-sm"
+                     value="{{ parsed.name }}" required>
+            </div>
+            <div class="col-6 col-sm-3">
+              <label class="form-label small mb-0">Item Type</label>
+              <input type="text" name="item_type" class="form-control form-control-sm"
+                     value="{{ parsed.item_type }}">
+            </div>
+            <div class="col-6 col-sm-3">
+              <label class="form-label small mb-0">Level</label>
+              <input type="text" name="level" class="form-control form-control-sm"
+                     value="{{ parsed.level }}">
+              <input type="hidden" name="level_min" value="{{ parsed.level_min }}">
+              <input type="hidden" name="level_max" value="{{ parsed.level_max }}">
+            </div>
+            <div class="col-6 col-sm-4">
+              <label class="form-label small mb-0">Wear Location</label>
+              <select name="wear_loc" class="form-select form-select-sm">
+                {% for slot_key, slot_label, _ in wear_slots %}
+                  <option value="{{ slot_key }}" {% if parsed.wear_loc == slot_key %}selected{% endif %}>
+                    {{ slot_label }} ({{ slot_key }})
+                  </option>
+                {% endfor %}
+                <option value="{{ parsed.wear_loc }}"
+                  {% if parsed.wear_loc not in wear_slots|map(attribute=0)|list %}selected{% endif %}>
+                  {{ parsed.wear_loc }} (parsed)
+                </option>
+              </select>
+            </div>
+            <div class="col-6 col-sm-4">
+              <label class="form-label small mb-0">Weight</label>
+              <input type="text" name="weight" class="form-control form-control-sm"
+                     value="{{ parsed.weight }}">
+            </div>
+            <div class="col-6 col-sm-4">
+              <label class="form-label small mb-0">
+                AC Value
+                <span class="text-secondary" title="Item's inherent armor protection (from 'Armor class is X of Y')">(?)</span>
+              </label>
+              <input type="number" name="item_value" class="form-control form-control-sm"
+                     value="{{ parsed.item_value }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header py-2 fw-bold small">Stats</div>
+        <div class="card-body p-3">
+          <div class="row g-2">
+            {% for field, label in [
+              ('hr','Hit Roll'), ('dr','Dam Roll'), ('hp','HP'), ('mana','Mana'),
+              ('ac','AC Apply'), ('str_b','STR'), ('dex_b','DEX'), ('int_b','INT'),
+              ('wis_b','WIS'), ('con_b','CON'), ('cha_b','CHA'), ('lck_b','LCK'),
+              ('move_b','Move')
+            ] %}
+            <div class="col-4 col-sm-3 col-md-2">
+              <label class="form-label small mb-0">{{ label }}</label>
+              <input type="number" name="{{ field }}" class="form-control form-control-sm
+                {{ 'border-success' if parsed[field] and parsed[field] != 0 else '' }}"
+                     value="{{ parsed[field] or 0 }}">
+            </div>
+            {% endfor %}
+            {% if parsed.d1 %}
+            <div class="col-4 col-sm-3 col-md-2">
+              <label class="form-label small mb-0">D1 (ndice)</label>
+              <input type="text" name="d1" class="form-control form-control-sm border-success"
+                     value="{{ parsed.d1 }}">
+            </div>
+            <div class="col-4 col-sm-3 col-md-2">
+              <label class="form-label small mb-0">D2 (max dam)</label>
+              <input type="text" name="d2" class="form-control form-control-sm border-success"
+                     value="{{ parsed.d2 }}">
+            </div>
+            {% endif %}
+            <div class="col-12">
+              <label class="form-label small mb-0">Gold Value</label>
+              <input type="number" name="gold" class="form-control form-control-sm"
+                     style="max-width:160px" value="{{ parsed.gold }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header py-2 fw-bold small">Flags &amp; Restrictions</div>
+        <div class="card-body p-3">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small mb-0">
+                Item Flags
+                <span class="text-secondary small">(space-separated: glow hum dark evil magic bless pkill not_in_game layerable…)</span>
+              </label>
+              <input type="text" name="flags" class="form-control form-control-sm"
+                     value="{{ parsed.flags }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label small mb-0">
+                Class Restrictions
+                <span class="text-secondary small">(space-separated: anti-Good anti-Evil anti-Mage anti-Warrior…)</span>
+              </label>
+              <input type="text" name="antis" class="form-control form-control-sm
+                {{ 'border-warning' if not parsed.antis else '' }}"
+                     value="{{ parsed.antis }}"
+                     placeholder="e.g. anti-Mage anti-Warrior (not shown in identify — fill in manually)">
+            </div>
+            <div class="col-12">
+              <label class="form-label small mb-0">
+                Race Restrictions
+                <span class="text-secondary small">(space-separated race names, or leave blank for all)</span>
+              </label>
+              <input type="text" name="races" class="form-control form-control-sm"
+                     value="{{ parsed.races }}" placeholder="e.g. Human Elf Dwarf">
+            </div>
+            <div class="col-12">
+              <label class="form-label small mb-0">
+                Special / Other Affects
+                <span class="text-secondary small">(detect_invis, sneak, hide, SvSp-5, ResCold_10%, Age_+40…)</span>
+              </label>
+              <input type="text" name="other" class="form-control form-control-sm"
+                     value="{{ parsed.other }}">
+            </div>
+            <div class="col-12">
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" name="is_gloried" id="is_gloried"
+                       value="1" {{ 'checked' if parsed.is_gloried else '' }}>
+                <label class="form-check-label small" for="is_gloried">
+                  Gloried
+                  <span class="text-secondary">(manually confirm this item is gloried)</span>
+                </label>
+              </div>
+              <input type="hidden" name="is_gloried" value="0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header py-2 fw-bold small d-flex align-items-center gap-2">
+          Source
+          <span class="badge bg-warning text-dark">Fill in manually</span>
+        </div>
+        <div class="card-body p-3">
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <label class="form-label small mb-0">Mob / Source</label>
+              <input type="text" name="mob_source" class="form-control form-control-sm"
+                     placeholder="e.g. Keshute, the wererat">
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label small mb-0">Area</label>
+              <input type="text" name="area" class="form-control form-control-sm"
+                     placeholder="e.g. Barrik's Keep">
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label small mb-0">Date (YYYY-MM-DD)</label>
+              <input type="text" name="date_mod" class="form-control form-control-sm"
+                     placeholder="{{ '' }}">
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label small mb-0">Editor / Your Name</label>
+              <input type="text" name="editor" class="form-control form-control-sm"
+                     placeholder="e.g. YourName - Add">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-floppy me-1"></i> Save Item
+        </button>
+        <a href="{{ url_for('import_identify') }}" class="btn btn-outline-secondary">
+          ← Parse Another
+        </a>
+        <a href="{{ url_for('items') }}" class="btn btn-outline-secondary ms-auto">
+          Browse Items
+        </a>
+      </div>
+
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

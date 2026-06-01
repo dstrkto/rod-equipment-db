@@ -1,0 +1,18 @@
+# Database (local data — not tracked)
+*.db
+rod.db
+
+# Logs
+server.log
+nohup.out
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+
+# macOS
+.DS_Store

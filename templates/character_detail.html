@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% block title %}{{ char.name }} — RoD DB{% endblock %}
+
+{% block content %}
+
+{# ── Character header ── #}
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <h5 class="mb-0">{{ char.name }}</h5>
+    <div class="text-secondary small">
+      Lv {{ char.level }} {{ char.char_class }}{% if char.race %} · {{ char.race }}{% endif %}
+      {% if char.sex %} · {{ char.sex }}{% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCharModal">
+      <i class="bi bi-pencil"></i> Edit
+    </button>
+    <form method="post" action="{{ url_for('copy_to_wanted', char_id=char.id) }}">
+      <button class="btn btn-sm btn-outline-warning" title="Copy current gear to wanted list">
+        <i class="bi bi-arrow-right-square"></i> Copy → Wanted
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('duplicate_character', char_id=char.id) }}">
+      <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-copy"></i> Duplicate</button>
+    </form>
+    <a href="{{ url_for('characters') }}" class="btn btn-sm btn-outline-secondary">← Characters</a>
+  </div>
+</div>
+
+{# ── Stat summary cards ── #}
+<div class="row g-2 mb-3">
+  {% set stat_labels = [('hr','HR'),('dr','DR'),('hp','HP'),('mana','Mana'),
+                        ('str_b','STR'),('dex_b','DEX'),('int_b','INT'),('wis_b','WIS'),
+                        ('con_b','CON'),('cha_b','CHA'),('lck_b','LCK'),('move_b','Move'),('ac','AC')] %}
+
+  {# Base stat row #}
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-body py-2 px-3">
+        <div class="row g-0 text-center" style="font-size:0.78rem">
+          {% for field, label in stat_labels %}
+          {% set base_val = {
+            'str_b': char.base_str, 'dex_b': char.base_dex,
+            'int_b': char.base_int, 'wis_b': char.base_wis,
+            'con_b': char.base_con, 'cha_b': char.base_cha,
+            'lck_b': char.base_lck, 'hp': char.base_hp,
+            'mana': char.base_mana, 'move_b': char.base_move
+          }.get(field, 0) %}
+          {% set gear_val = cur_totals[field] %}
+          {% set want_val = want_totals[field] %}
+          {% set total = (base_val or 0) + (gear_val or 0) %}
+          {% set want_total = (base_val or 0) + (want_val or 0) %}
+          <div class="col"
+               data-stat="{{ field }}"
+               data-cur="{{ total }}"
+               data-want="{{ want_total }}"
+               data-want-differs="{{ '1' if want_val != gear_val else '0' }}">
+            <div class="text-secondary">{{ label }}</div>
+            <div class="fw-bold stat-cur-val {{ 'stat-pos' if gear_val > 0 else ('stat-neg' if gear_val < 0 else '') }}">
+              {{ total if total else '—' }}
+            </div>
+            {% if want_val != gear_val %}
+            <div class="small stat-want-val {{ 'stat-pos' if want_val > gear_val else 'stat-neg' }}" title="Wanted total">
+              →{{ want_total }}
+            </div>
+            {% else %}
+            <div class="small text-secondary">—</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="d-flex justify-content-between align-items-center" style="font-size:0.7rem;margin-top:4px">
+          <span class="text-secondary">Row 1 = current total (base + gear) &nbsp;|&nbsp; Row 2 = wanted total (→ if different)</span>
+          <div class="form-check form-switch mb-0 ms-3">
+            <input class="form-check-input" type="checkbox" id="levelingSpells" role="switch">
+            <label class="form-check-label text-secondary" for="levelingSpells">Leveling Spells</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Gear / Wanted columns ── #}
+<div class="row g-3">
+  {% for is_wanted in [0, 1] %}
+  {% set slot_map = wanted if is_wanted else current %}
+  <div class="col-lg-6">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h6 class="mb-0 {{ 'text-warning' if is_wanted else '' }}">
+        {{ '⭐ Wanted Gear' if is_wanted else '🛡 Current Gear' }}
+      </h6>
+      {% set totals = want_totals if is_wanted else cur_totals %}
+      <span class="text-secondary small">
+        HR {{ '%+d'|format(totals.hr) }}
+        DR {{ '%+d'|format(totals.dr) }}
+        HP {{ '%+d'|format(totals.hp) }}
+        Mana {{ '%+d'|format(totals.mana) }}
+        AC {{ '%+d'|format(totals.ac) }}
+      </span>
+    </div>
+
+    {% for slot_key, slot_label, max_count in wear_slots %}
+    <div class="slot-group" data-slot-group="{{ slot_key }}-{{ is_wanted }}" data-max="{{ max_count }}">
+      {% for idx in range(max_count) %}
+        {% set slot_name = slot_key ~ '_' ~ idx %}
+        {% set row = slot_map.get(slot_name) %}
+        {% set has_item = row and row['id'] %}
+
+        <div class="card mb-1 slot-card {{ '' if has_item else 'slot-empty' }} bg-dark border-secondary"
+             id="sc-{{ is_wanted }}-{{ slot_name }}">
+          <div class="card-body py-1 px-2 d-flex align-items-center gap-2">
+            {# Slot label — only show for first index #}
+            <div class="text-secondary" style="width:110px;font-size:0.75rem;flex-shrink:0">
+              {% if idx == 0 %}{{ slot_label }}{% endif %}
+            </div>
+
+            {# Item name / empty placeholder #}
+            <div class="flex-grow-1 overflow-hidden">
+              {% if has_item %}
+                <a href="{{ url_for('item_detail', item_id=row['id']) }}"
+                   class="text-decoration-none small fw-bold text-truncate d-block{{ ' flag-gloried' if row['is_gloried'] else '' }}"
+                   style="max-width:100%"
+                   title="{{ row['name'] }}{{ ' (Gloried)' if row['is_gloried'] else '' }}">
+                  {% if row['is_gloried'] %}<i class="bi bi-stars me-1" style="font-size:0.7rem"></i>{% endif %}{{ row['name'] }}
+                </a>
+                <div class="text-secondary d-flex flex-wrap gap-1" style="font-size:0.7rem">
+                  {% if row['hr'] %}<span class="stat-pos">HR{{ '%+d'|format(row['hr']) }}</span>{% endif %}
+                  {% if row['dr'] %}<span class="stat-pos">DR{{ '%+d'|format(row['dr']) }}</span>{% endif %}
+                  {% if row['hp'] %}<span class="stat-pos">HP{{ '%+d'|format(row['hp']) }}</span>{% endif %}
+                  {% if row['mana'] %}<span class="stat-pos">Mana{{ '%+d'|format(row['mana']) }}</span>{% endif %}
+                  {% if row['ac'] %}<span class="{{ 'stat-pos' if row['ac'] < 0 else 'stat-neg' }}">AC{{ '%+d'|format(row['ac']) }}</span>{% endif %}
+                  {% for sf, sl in [('str_b','STR'),('dex_b','DEX'),('int_b','INT'),('wis_b','WIS'),('con_b','CON'),('cha_b','CHA'),('lck_b','LCK'),('move_b','Mv')] %}
+                    {% if row[sf] %}<span class="{{ 'stat-pos' if row[sf] > 0 else 'stat-neg' }}">{{ sl }}{{ '%+d'|format(row[sf]) }}</span>{% endif %}
+                  {% endfor %}
+                  <span class="text-secondary">{{ row['level'] }}</span>
+                </div>
+              {% else %}
+                <span class="text-secondary small fst-italic">empty</span>
+              {% endif %}
+            </div>
+
+            {# Action buttons #}
+            <div class="d-flex gap-1 flex-shrink-0">
+              <button class="btn btn-sm btn-outline-secondary py-0 px-1"
+                      onclick="openPicker('{{ slot_name }}', '{{ slot_key }}', {{ is_wanted }})"
+                      title="Assign item">
+                <i class="bi bi-search"></i>
+              </button>
+              {% if has_item %}
+              <form method="post" action="{{ url_for('set_slot', char_id=char.id) }}">
+                <input type="hidden" name="slot_name"  value="{{ slot_name }}">
+                <input type="hidden" name="is_wanted"  value="{{ is_wanted }}">
+                <input type="hidden" name="clear"      value="1">
+                <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Clear slot">
+                  <i class="bi bi-x"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      {% endfor %}
+    </div>{# /slot-group #}
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+
+{# ── Item picker modal ── #}
+<div class="modal fade" id="pickerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Assign Item to <span id="pickerSlotLabel"></span></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-2">
+        <div class="d-flex gap-2 mb-2">
+          <input type="text" id="pickerSearch" class="form-control form-control-sm"
+                 placeholder="Search by name…" oninput="searchItems()">
+          <input type="hidden" id="pickerSlotName">
+          <input type="hidden" id="pickerIsWanted">
+          <input type="hidden" id="pickerWearLoc">
+        </div>
+        <div id="pickerResults" class="list-group list-group-flush" style="font-size:0.82rem"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Hidden form used by picker to submit selection #}
+<form method="post" action="{{ url_for('set_slot', char_id=char.id) }}" id="pickerForm">
+  <input type="hidden" name="slot_name" id="pf_slot_name">
+  <input type="hidden" name="item_id"   id="pf_item_id">
+  <input type="hidden" name="is_wanted" id="pf_is_wanted">
+</form>
+
+
+{# ── Edit character modal ── #}
+<div class="modal fade" id="editCharModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Edit Character</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" action="{{ url_for('edit_character', char_id=char.id) }}">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label small">Name</label>
+              <input type="text" name="name" class="form-control form-control-sm"
+                     value="{{ char.name }}" required>
+            </div>
+            <div class="col-3">
+              <label class="form-label small">Level</label>
+              <input type="number" name="level" class="form-control form-control-sm"
+                     value="{{ char.level }}" min="1" max="50">
+            </div>
+            <div class="col-3">
+              <label class="form-label small">Sex</label>
+              <select name="sex" class="form-select form-select-sm">
+                {% for s in sexes %}
+                  <option {% if char.sex==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label small">Class</label>
+              <select name="char_class" class="form-select form-select-sm">
+                <option value="">— select —</option>
+                {% for c in classes %}
+                  <option {% if char.char_class==c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Race</label>
+              <select name="race" class="form-select form-select-sm">
+                <option value="">— select —</option>
+                {% for r in races %}
+                  <option {% if char.race==r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <hr class="border-secondary">
+          <div class="row g-2 mb-2">
+            {% for field, label in [('base_str','STR'),('base_dex','DEX'),('base_int','INT'),('base_wis','WIS'),('base_con','CON'),('base_cha','CHA'),('base_lck','LCK')] %}
+            <div class="col-3">
+              <label class="form-label small mb-0">{{ label }}</label>
+              <input type="number" name="{{ field }}" class="form-control form-control-sm"
+                     value="{{ char[field] }}">
+            </div>
+            {% endfor %}
+          </div>
+          <div class="row g-2 mb-3">
+            {% for field, label in [('base_hp','Base HP'),('base_mana','Base Mana'),('base_move','Base Move')] %}
+            <div class="col-4">
+              <label class="form-label small mb-0">{{ label }}</label>
+              <input type="number" name="{{ field }}" class="form-control form-control-sm"
+                     value="{{ char[field] }}">
+            </div>
+            {% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pickerModal = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const pickerEl = document.getElementById('pickerModal');
+  pickerModal = new bootstrap.Modal(pickerEl);
+  pickerEl.addEventListener('shown.bs.modal', () => {
+    document.getElementById('pickerSearch').focus();
+  });
+  initCollapsibleSlots();
+});
+
+function initCollapsibleSlots() {
+  document.querySelectorAll('.slot-group').forEach(group => {
+    const maxCount = parseInt(group.dataset.max || '1');
+    if (maxCount <= 1) return;
+
+    const cards = Array.from(group.querySelectorAll(':scope > .slot-card'));
+    if (cards.length <= 1) return;
+
+    let lastFilledIdx = -1;
+    cards.forEach((card, i) => {
+      if (!card.classList.contains('slot-empty')) lastFilledIdx = i;
+    });
+
+    const visibleCount = Math.max(1, lastFilledIdx + 1);
+    const collapsible = cards.slice(visibleCount);
+    if (collapsible.length === 0) return;
+
+    const collapseId = 'cg-' + group.dataset.slotGroup;
+    const collapseDiv = document.createElement('div');
+    collapseDiv.className = 'collapse';
+    collapseDiv.id = collapseId;
+    collapsible.forEach(c => collapseDiv.appendChild(c));
+
+    const n = collapsible.length;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-link btn-sm text-secondary text-decoration-none py-0 ps-0 mb-1';
+    btn.setAttribute('data-bs-toggle', 'collapse');
+    btn.setAttribute('data-bs-target', '#' + collapseId);
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = `<i class="bi bi-chevron-right me-1 cicon"></i>${n} empty slot${n > 1 ? 's' : ''}`;
+
+    group.appendChild(btn);
+    group.appendChild(collapseDiv);
+
+    collapseDiv.addEventListener('show.bs.collapse', () => {
+      btn.querySelector('.cicon').classList.replace('bi-chevron-right', 'bi-chevron-down');
+    });
+    collapseDiv.addEventListener('hide.bs.collapse', () => {
+      btn.querySelector('.cicon').classList.replace('bi-chevron-down', 'bi-chevron-right');
+    });
+  });
+}
+
+const SPELL_FIELDS = new Set(['str_b','dex_b','int_b','wis_b','con_b','cha_b']);
+
+document.getElementById('levelingSpells').addEventListener('change', function() {
+  const bonus = this.checked ? 2 : 0;
+  document.querySelectorAll('[data-stat]').forEach(col => {
+    if (!SPELL_FIELDS.has(col.dataset.stat)) return;
+    const cur  = parseInt(col.dataset.cur)  + bonus;
+    const want = parseInt(col.dataset.want) + bonus;
+    col.querySelector('.stat-cur-val').textContent  = cur  || '—';
+    if (col.dataset.wantDiffers === '1') {
+      col.querySelector('.stat-want-val').textContent = '→' + (want || '0');
+    }
+  });
+});
+
+function openPicker(slotName, wearLoc, isWanted) {
+  document.getElementById('pickerSlotName').value = slotName;
+  document.getElementById('pickerIsWanted').value  = isWanted;
+  document.getElementById('pickerWearLoc').value   = wearLoc;
+  document.getElementById('pickerSlotLabel').textContent = slotName.replace('_', ' ');
+  document.getElementById('pickerSearch').value = '';
+  document.getElementById('pickerResults').innerHTML = '<div class="text-secondary p-2 small">Type to search…</div>';
+  pickerModal.show();
+}
+
+let searchTimer = null;
+function searchItems() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(_doSearch, 250);
+}
+
+function _doSearch() {
+  const q       = document.getElementById('pickerSearch').value.trim();
+  const wearLoc = document.getElementById('pickerWearLoc').value;
+  if (q.length < 1) return;
+
+  const url = `/api/items?q=${encodeURIComponent(q)}&wear_loc=${encodeURIComponent(wearLoc)}`;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('pickerResults');
+      if (!data.length) {
+        el.innerHTML = '<div class="list-group-item bg-dark text-secondary">No results</div>';
+        return;
+      }
+      el.innerHTML = data.map(item => `
+        <button type="button"
+          class="list-group-item list-group-item-action bg-dark text-light border-secondary py-1"
+          onclick="pickItem(${item.id})">
+          <strong>${item.name}</strong>
+          <span class="text-secondary ms-2 small">${item.item_type} · ${item.wear_loc} · lv ${item.level}</span>
+        </button>
+      `).join('');
+    });
+}
+
+function pickItem(itemId) {
+  const slotName = document.getElementById('pickerSlotName').value;
+  const isWanted = document.getElementById('pickerIsWanted').value;
+  document.getElementById('pf_slot_name').value = slotName;
+  document.getElementById('pf_item_id').value   = itemId;
+  document.getElementById('pf_is_wanted').value = isWanted;
+  pickerModal.hide();
+  document.getElementById('pickerForm').submit();
+}
+</script>
+{% endblock %}

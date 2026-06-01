@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Items — RoD DB{% endblock %}
+
+{% block content %}
+<div class="row g-2">
+  {# ── Filter sidebar ── #}
+  <div class="col-lg-3 col-xl-2">
+    <div class="filter-sidebar">
+      <form method="get" action="{{ url_for('items') }}" id="filterForm">
+        <div class="card bg-dark border-secondary mb-2">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span class="fw-bold">Filters</span>
+            <a href="{{ url_for('items') }}" class="btn btn-sm btn-outline-secondary py-0">Clear</a>
+          </div>
+          <div class="card-body p-2">
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Name</label>
+              <input type="text" name="name" class="form-control form-control-sm"
+                     value="{{ args.get('name','') }}" placeholder="partial match">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Item Type</label>
+              <select name="item_type" class="form-select form-select-sm">
+                <option value="">— any —</option>
+                {% for t in types %}
+                  <option value="{{ t }}" {% if args.get('item_type')==t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Wear Location</label>
+              <select name="wear_loc" class="form-select form-select-sm">
+                <option value="">— any —</option>
+                {% for l in locs %}
+                  <option value="{{ l }}" {% if args.get('wear_loc')==l %}selected{% endif %}>{{ l if l else '(none)' }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Level</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="lmin" class="form-control" placeholder="min"
+                       value="{{ args.get('lmin','') }}" min="1" max="50">
+                <span class="input-group-text">–</span>
+                <input type="number" name="lmax" class="form-control" placeholder="max"
+                       value="{{ args.get('lmax','') }}" min="1" max="50">
+              </div>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Usable by Class</label>
+              <select name="cls" class="form-select form-select-sm">
+                <option value="">— any —</option>
+                {% for c in classes %}
+                  <option value="{{ c }}" {% if args.get('cls')==c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <hr class="my-2 border-secondary">
+            <div class="small fw-bold mb-1">Min Stats</div>
+            {% for field, label in stat_fields %}
+            <div class="mb-1 d-flex align-items-center gap-1">
+              <label class="small text-secondary" style="width:42px">{{ label }}</label>
+              <input type="number" name="stat_{{ field }}" class="form-control form-control-sm"
+                     style="width:70px" value="{{ args.get('stat_'~field,'') }}">
+            </div>
+            {% endfor %}
+
+            <hr class="my-2 border-secondary">
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Mob / Source</label>
+              <input type="text" name="mob" class="form-control form-control-sm"
+                     value="{{ args.get('mob','') }}" placeholder="partial match">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Area</label>
+              <input type="text" name="area" class="form-control form-control-sm"
+                     value="{{ args.get('area','') }}" placeholder="partial match">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Special / Other</label>
+              <input type="text" name="other" class="form-control form-control-sm"
+                     value="{{ args.get('other','') }}" placeholder="e.g. ResCold">
+            </div>
+
+            <hr class="my-2 border-secondary">
+            <div class="small fw-bold mb-1">Show Items</div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="show_oog" value="1" id="chk_oog"
+                     {% if args.get('show_oog')=='1' %}checked{% endif %}>
+              <label class="form-check-label small" for="chk_oog">Out of Game</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="show_pk" value="1" id="chk_pk"
+                     {% if args.get('show_pk')=='1' %}checked{% endif %}>
+              <label class="form-check-label small" for="chk_pk">PK Only</label>
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="show_gloried" value="1" id="chk_gl"
+                     {% if args.get('show_gloried')=='1' %}checked{% endif %}>
+              <label class="form-check-label small" for="chk_gl">Gloried</label>
+            </div>
+
+            <input type="hidden" name="sort"  value="{{ sort }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <button type="submit" class="btn btn-primary btn-sm w-100">Search</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ── Results ── #}
+  <div class="col-lg-9 col-xl-10">
+    <div class="d-flex align-items-center justify-content-between mb-1">
+      <span class="text-secondary small">{{ total }} result{% if total!=1 %}s{% endif %}{% if total==500 %} (capped at 500){% endif %}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-dark table-hover align-middle mb-0" style="font-size:0.8rem">
+        <thead class="table-secondary">
+          <tr>
+            {% macro sort_link(col, label) %}
+              {% set new_order = 'desc' if (sort==col and order=='asc') else 'asc' %}
+              <a href="{{ url_for('items', **dict(args.to_dict(), sort=col, order=new_order)) }}"
+                 class="text-dark text-decoration-none">
+                {{ label }}
+                {% if sort==col %}{{ '▲' if order=='asc' else '▼' }}{% endif %}
+              </a>
+            {% endmacro %}
+            <th>{{ sort_link('name','Name') }}</th>
+            <th>{{ sort_link('item_type','Type') }}</th>
+            <th>{{ sort_link('wear_loc','Slot') }}</th>
+            <th>{{ sort_link('level_min','Lvl') }}</th>
+            <th>{{ sort_link('hr','HR') }}</th>
+            <th>{{ sort_link('dr','DR') }}</th>
+            <th>{{ sort_link('hp','HP') }}</th>
+            <th>{{ sort_link('mana','Mana') }}</th>
+            <th>{{ sort_link('ac','AC') }}</th>
+            <th>STR</th><th>DEX</th><th>INT</th>
+            <th>WIS</th><th>CON</th><th>CHA</th><th>LCK</th>
+            <th>{{ sort_link('move_b','Mv') }}</th>
+            <th>{{ sort_link('area','Area') }}</th>
+            <th>Flags</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in items %}
+          <tr class="item-row" onclick="window.location='{{ url_for('item_detail', item_id=item.id) }}'">
+            <td>
+              {% if item.is_oog %}<span class="flag-oog" title="Out of Game"><i class="bi bi-x-circle-fill me-1"></i></span>{% endif %}
+              {% if item.is_pkill %}<span class="flag-pk" title="PK Only"><i class="bi bi-shield-fill-x me-1"></i></span>{% endif %}
+              <strong>{{ item.name }}</strong>
+            </td>
+            <td class="text-secondary">{{ item.item_type }}</td>
+            <td>{{ item.wear_loc }}</td>
+            <td>{{ item.level }}</td>
+            {% macro sv(v) %}
+              {% if v and v != 0 %}
+                <span class="{{ 'stat-pos' if v > 0 else 'stat-neg' }}">{{ '%+d'|format(v) }}</span>
+              {% else %}<span class="stat-zero">—</span>{% endif %}
+            {% endmacro %}
+            <td>{{ sv(item.hr) }}</td>
+            <td>{{ sv(item.dr) }}</td>
+            <td>{{ sv(item.hp) }}</td>
+            <td>{{ sv(item.mana) }}</td>
+            <td>{{ sv(item.ac) }}</td>
+            <td>{{ sv(item.str_b) }}</td>
+            <td>{{ sv(item.dex_b) }}</td>
+            <td>{{ sv(item.int_b) }}</td>
+            <td>{{ sv(item.wis_b) }}</td>
+            <td>{{ sv(item.con_b) }}</td>
+            <td>{{ sv(item.cha_b) }}</td>
+            <td>{{ sv(item.lck_b) }}</td>
+            <td>{{ sv(item.move_b) }}</td>
+            <td class="text-secondary" style="max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ item.area }}</td>
+            <td class="text-secondary" style="max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:0.72rem">{{ item.flags }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="20" class="text-center text-secondary py-4">No items found. Try adjusting filters or import a database file.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

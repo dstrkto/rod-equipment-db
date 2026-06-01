@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Characters — RoD DB{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0">Characters</h5>
+  <a href="{{ url_for('new_character') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-person-plus me-1"></i>New Character
+  </a>
+</div>
+
+{% if characters %}
+<div class="row g-2">
+  {% for char in characters %}
+  <div class="col-md-4 col-lg-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body py-2 px-3">
+        <h6 class="card-title mb-1">
+          <a href="{{ url_for('character_detail', char_id=char.id) }}" class="text-decoration-none">
+            {{ char.name }}
+          </a>
+        </h6>
+        <div class="text-secondary small">
+          Lv {{ char.level }} {{ char.char_class }}{% if char.race %} · {{ char.race }}{% endif %}
+        </div>
+        <div class="small mt-1">
+          HP: <strong>{{ char.base_hp }}</strong>
+          &nbsp;Mana: <strong>{{ char.base_mana }}</strong>
+        </div>
+      </div>
+      <div class="card-footer py-1 px-3 d-flex gap-1">
+        <a href="{{ url_for('character_detail', char_id=char.id) }}" class="btn btn-sm btn-outline-secondary py-0">
+          <i class="bi bi-gear"></i> Gear
+        </a>
+        <form method="post" action="{{ url_for('duplicate_character', char_id=char.id) }}" class="ms-auto">
+          <button class="btn btn-sm btn-outline-secondary py-0" title="Duplicate">
+            <i class="bi bi-copy"></i>
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('delete_character', char_id=char.id) }}"
+              onsubmit="return confirm('Delete {{ char.name }}?')">
+          <button class="btn btn-sm btn-outline-danger py-0" title="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-secondary py-5">
+  <i class="bi bi-person-x display-4"></i>
+  <p class="mt-2">No characters yet. Create one to track equipment sets.</p>
+  <a href="{{ url_for('new_character') }}" class="btn btn-primary">Create Character</a>
+</div>
+{% endif %}
+{% endblock %}

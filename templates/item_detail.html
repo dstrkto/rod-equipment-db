@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} — RoD DB{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="mb-2 d-flex gap-2">
+      <a href="{{ url_for('items') }}" class="btn btn-sm btn-outline-secondary">← Back to Items</a>
+      <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-sm btn-outline-primary ms-auto">
+        <i class="bi bi-pencil me-1"></i>Edit
+      </a>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex align-items-center gap-2">
+        {% if item.is_oog %}<span class="badge bg-primary flag-oog">OOG</span>{% endif %}
+        {% if item.is_pkill %}<span class="badge bg-danger">PK</span>{% endif %}
+        {% if item.is_gloried %}<span class="badge bg-success flag-gloried">Gloried</span>{% endif %}
+        <h5 class="mb-0">{{ item.name }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+
+          <div class="col-md-4">
+            <table class="table table-sm table-dark table-borderless mb-0">
+              <tr><th class="text-secondary" style="width:40%">Type</th><td>{{ item.item_type }}</td></tr>
+              <tr><th class="text-secondary">Slot</th><td>{{ item.wear_loc }}</td></tr>
+              <tr><th class="text-secondary">Level</th><td>{{ item.level }}</td></tr>
+              {% if item.weight %}<tr><th class="text-secondary">Weight</th><td>{{ item.weight }}</td></tr>{% endif %}
+              {% if item.gold is not none %}<tr><th class="text-secondary">Gold Value</th><td>{{ item.gold }}</td></tr>{% endif %}
+              {% if item.item_type == 'armor' %}<tr><th class="text-secondary">AC Value</th><td>{{ item.item_value }}</td></tr>{% endif %}
+              {% if item.d1 %}<tr><th class="text-secondary">Damage</th><td>{{ item.d1 }} / {{ item.d2 }}</td></tr>{% endif %}
+            </table>
+          </div>
+
+          <div class="col-md-4">
+            <div class="small fw-bold text-secondary mb-1">Stats</div>
+            <table class="table table-sm table-dark table-borderless mb-0">
+              {% for field, label in stat_fields %}
+                {% set v = item[field] %}
+                {% if v and v != 0 %}
+                <tr>
+                  <th class="text-secondary" style="width:50%">{{ label }}</th>
+                  <td class="{{ 'stat-pos' if v > 0 else 'stat-neg' }}">{{ '%+d'|format(v) }}</td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            </table>
+          </div>
+
+          <div class="col-md-4">
+            <div class="small fw-bold text-secondary mb-1">Flags &amp; Restrictions</div>
+            {% if item.flags %}
+              <div class="mb-1">
+                {% for flag in item.flags.split() %}
+                  <span class="badge bg-secondary me-1">{{ flag }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if item.antis %}
+              <div class="small text-secondary mb-1">Restrictions:</div>
+              <div class="mb-1">
+                {% for anti in item.antis.split() %}
+                  <span class="badge bg-dark border border-secondary me-1" style="font-size:0.7rem">{{ anti }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if item.races %}
+              <div class="small text-secondary mb-1">Races:</div>
+              <div class="mb-1 small">{{ item.races }}</div>
+            {% endif %}
+          </div>
+
+          {% if item.other %}
+          <div class="col-12">
+            <div class="small fw-bold text-secondary mb-1">Special / Other Affects</div>
+            <div class="font-monospace small">{{ item.other }}</div>
+          </div>
+          {% endif %}
+
+          <div class="col-12">
+            <div class="small fw-bold text-secondary mb-1">Source</div>
+            <table class="table table-sm table-dark table-borderless mb-0">
+              {% if item.mob_source %}
+              <tr><th class="text-secondary" style="width:100px">Mob</th><td>{{ item.mob_source }}</td></tr>
+              {% endif %}
+              {% if item.area %}
+              <tr><th class="text-secondary">Area</th><td>{{ item.area }}</td></tr>
+              {% endif %}
+              {% if item.date_mod %}
+              <tr><th class="text-secondary">Updated</th><td>{{ item.date_mod }}{% if item.editor %} by {{ item.editor }}{% endif %}</td></tr>
+              {% endif %}
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Import — RoD DB{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <h5 class="mb-3">Import Item Database</h5>
+
+    <div class="card bg-dark border-secondary mb-3">
+      <div class="card-header py-2 fw-bold">Import from File</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('import_items') }}">
+          <div class="mb-3">
+            <label class="form-label">File Path</label>
+            <input type="text" name="path" class="form-control font-monospace"
+                   placeholder="/path/to/RoD_Item.txt"
+                   value="/Users/diaz/Downloads/Database [Released] v5.0.2 - Public/RoD_Item.txt">
+            <div class="form-text">Full path to your <code>RoD_Item.txt</code> file.</div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="replace" value="1" id="chk_replace">
+              <label class="form-check-label" for="chk_replace">
+                Replace all existing items (full reload)
+              </label>
+            </div>
+            <div class="form-text text-warning">
+              Leave unchecked to merge — new items are added, existing items (matched by name + type + slot) are updated.
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-upload me-1"></i> Import
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header py-2 fw-bold">Format Notes</div>
+      <div class="card-body small text-secondary">
+        <p>Supported: <strong>RoD_Item.txt v5.0</strong> (pipe-delimited, same format as the original RoD_db program).</p>
+        <p class="mb-1">Column order expected:</p>
+        <code class="d-block mb-2">type | wear_loc | name | level | weight | ac | d1 | d2 | hr | dr | hp | mana | str | dex | int | wis | con | cha | lck | move | item_value | gold | flags | antis | races | other | mob | area | [date] | [editor]</code>
+        <p class="mb-0">The gloried items file (<code>RoD_Item_Gloried.txt</code>) uses the same format and can be imported the same way.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

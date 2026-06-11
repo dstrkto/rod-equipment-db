@@ -159,9 +159,15 @@ def items():
     # ---- class filter (anti-flag search) ----
     cls_filter = request.args.get('cls', '').strip()
     if cls_filter:
-        # exclude items that are anti- for this class
-        clauses.append("(antis NOT LIKE ? AND antis NOT LIKE ? AND antis NOT LIKE ?)")
-        params += [f'%anti-{cls_filter}%', f'%anti-{cls_filter} %', f'%anti-{cls_filter}']
+        # exclude items that are anti- for this class; a prestige class
+        # ("Prestige: Druid/Cleric") is blocked by either component's anti-flag
+        if cls_filter.startswith('Prestige:'):
+            components = cls_filter.split(':', 1)[1].strip().split('/')
+        else:
+            components = [cls_filter]
+        for c in components:
+            clauses.append("antis NOT LIKE ?")
+            params.append(f'%anti-{c.strip()}%')
 
     # ---- flag toggles ----
     show_oog   = request.args.get('show_oog',   '0') == '1'

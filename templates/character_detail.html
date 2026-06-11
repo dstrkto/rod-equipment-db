@@ -111,9 +111,13 @@
         <div class="card mb-1 slot-card {{ '' if has_item else 'slot-empty' }} bg-dark border-secondary"
              id="sc-{{ is_wanted }}-{{ slot_name }}">
           <div class="card-body py-1 px-2 d-flex align-items-center gap-2">
-            {# Slot label — only show for first index #}
-            <div class="text-secondary" style="width:110px;font-size:0.75rem;flex-shrink:0">
-              {% if idx == 0 %}{{ slot_label }}{% endif %}
+            {# Slot label — only show for first index; links to pre-filtered item DB #}
+            <div style="width:110px;font-size:0.75rem;flex-shrink:0">
+              {% if idx == 0 %}
+              <a href="{{ url_for('items', wear_loc=slot_key, cls=char.char_class, lmax=char.level) }}"
+                 class="slot-db-link text-secondary"
+                 title="Browse {{ slot_label }} gear usable by {{ char.name }}">{{ slot_label }}</a>
+              {% endif %}
             </div>
 
             {# Item name / empty placeholder #}

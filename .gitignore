@@ -2,6 +2,9 @@
 *.db
 rod.db
 
+# Scraped reference content (community wikis — keep local)
+reference/
+
 # Logs
 server.log
 nohup.out

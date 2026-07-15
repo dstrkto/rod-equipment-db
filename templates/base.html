@@ -8,21 +8,123 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    body { font-size: 0.875rem; }
-    .navbar-brand { font-weight: 700; letter-spacing: 1px; color: #e8b84b !important; }
+    /* ── Palette: dark-fantasy indigo base, gold + violet accents ── */
+    [data-bs-theme="dark"] {
+      --bs-body-bg: #13131c;
+      --bs-body-color: #d7d7e2;
+      --bs-emphasis-color: #ffffff;
+      --bs-emphasis-color-rgb: 255, 255, 255;
+      --bs-border-color: #2e2e46;
+      --bs-dark-rgb: 30, 30, 44;              /* recolors .bg-dark cards + navbar */
+      --bs-secondary-color: rgba(215, 215, 226, 0.6);
+      --bs-tertiary-bg: #1c1c29;
+      --bs-link-color-rgb: 232, 200, 112;
+      --bs-link-hover-color-rgb: 244, 221, 143;
+      /* accents */
+      --rod-gold: #e6c56b;
+      --rod-gold-dim: #b9973f;
+      --rod-violet: #7b6cf0;
+    }
+
+    body {
+      font-size: 0.875rem;
+      background:
+        radial-gradient(1100px 550px at 100% -8%, rgba(123, 108, 240, 0.11), transparent 60%),
+        radial-gradient(950px 480px at -8% 108%, rgba(224, 169, 74, 0.07), transparent 55%),
+        var(--bs-body-bg);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      border-bottom: 2px solid rgba(224, 169, 74, 0.45) !important;
+      box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+    }
+    .navbar-brand {
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--rod-gold) !important;
+      text-shadow: 0 0 10px rgba(224, 169, 74, 0.4);
+    }
+    .navbar .nav-link.active { color: var(--rod-gold) !important; }
+
+    /* ── Surfaces ── */
+    [data-bs-theme="dark"] .border-secondary { border-color: #33334d !important; }
+    .card {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 45%),
+        RGBA(var(--bs-dark-rgb), 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .card-header {
+      color: var(--rod-gold);
+      background: rgba(123, 108, 240, 0.07);
+      border-bottom-color: var(--bs-border-color) !important;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Buttons: indigo = primary/confirm, gold (btn-warning) = special/wanted ── */
+    [data-bs-theme="dark"] .btn-primary {
+      --bs-btn-bg: var(--rod-violet);
+      --bs-btn-border-color: var(--rod-violet);
+      --bs-btn-hover-bg: #8d7ff5;
+      --bs-btn-hover-border-color: #8d7ff5;
+      --bs-btn-active-bg: #6555e0;
+      --bs-btn-active-border-color: #6555e0;
+      --bs-btn-disabled-bg: var(--rod-violet);
+      --bs-btn-disabled-border-color: var(--rod-violet);
+    }
+    [data-bs-theme="dark"] .btn-outline-primary {
+      --bs-btn-color: #a99cf7;
+      --bs-btn-border-color: #5a4bc4;
+      --bs-btn-hover-bg: var(--rod-violet);
+      --bs-btn-hover-border-color: var(--rod-violet);
+      --bs-btn-hover-color: #fff;
+      --bs-btn-active-bg: #6555e0;
+    }
+    [data-bs-theme="dark"] .btn-outline-warning {
+      --bs-btn-color: var(--rod-gold);
+      --bs-btn-border-color: var(--rod-gold-dim);
+      --bs-btn-hover-bg: var(--rod-gold);
+      --bs-btn-hover-border-color: var(--rod-gold);
+      --bs-btn-hover-color: #201a08;
+    }
+
+    /* ── Tables ── */
+    .table { --bs-table-bg: transparent; }
+    .table > thead { color: var(--rod-gold); }
+    .item-row:hover, .table-hover > tbody > tr:hover > * {
+      background: rgba(123, 108, 240, 0.12);
+      cursor: pointer;
+    }
+
+    /* ── Semantic stat / flag colors ── */
     .stat-badge { font-size: 0.75rem; padding: 2px 5px; }
-    .item-row:hover { background: rgba(255,255,255,0.05); cursor: pointer; }
-    .flag-oog  { color: #6ea8fe; }
-    .flag-pk   { color: #f8696b; }
-    .flag-gloried { color: #75b798; }
-    .slot-card { min-height: 54px; }
-    .slot-empty { border-style: dashed !important; opacity: 0.5; }
-    .slot-db-link { text-decoration: none; }
-    .slot-db-link:hover { text-decoration: underline; }
-    .slot-db-link:hover::after { content: ' \F3E1'; font-family: 'bootstrap-icons'; font-size: 0.65rem; }
-    .stat-pos { color: #75b798; }
-    .stat-neg { color: #f8696b; }
+    .stat-pos { color: #6ee79f; }
+    .stat-neg { color: #ff7a7c; }
     .stat-zero { color: #6c757d; }
+    .flag-oog  { color: #6ab7ff; }
+    .flag-pk   { color: #ff7a7c; }
+    .flag-gloried {
+      color: #ffd45e;
+      text-shadow: 0 0 7px rgba(255, 212, 94, 0.5);
+    }
+
+    /* ── Equipment slots ── */
+    .slot-card {
+      min-height: 54px;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .slot-card:not(.slot-empty):hover {
+      border-color: rgba(224, 169, 74, 0.55) !important;
+      box-shadow: 0 0 0 1px rgba(224, 169, 74, 0.25);
+    }
+    .slot-empty { border-style: dashed !important; opacity: 0.45; }
+    .slot-db-link { text-decoration: none; }
+    .slot-db-link:hover { text-decoration: underline; color: var(--rod-gold) !important; }
+    .slot-db-link:hover::after { content: ' \F3E1'; font-family: 'bootstrap-icons'; font-size: 0.65rem; }
+
     .totals-row th, .totals-row td { font-size: 0.8rem; padding: 2px 6px; }
     .filter-sidebar { position: sticky; top: 56px; max-height: calc(100vh - 70px); overflow-y: auto; }
   </style>

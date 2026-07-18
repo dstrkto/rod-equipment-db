@@ -61,6 +61,36 @@
               </select>
             </div>
 
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Usable by Race</label>
+              <select name="race" class="form-select form-select-sm">
+                <option value="">— any —</option>
+                {% for r in races %}
+                  <option value="{{ r }}" {% if args.get('race')==r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Usable by Sex</label>
+              <select name="sex" class="form-select form-select-sm">
+                <option value="">— any —</option>
+                {% for s in sexes %}
+                  <option value="{{ s }}" {% if args.get('sex')==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label mb-0 small">Usable by Alignment</label>
+              <select name="align" class="form-select form-select-sm">
+                <option value="">— any —</option>
+                {% for a in alignments %}
+                  <option value="{{ a }}" {% if args.get('align')==a %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
             <hr class="my-2 border-secondary">
             <div class="small fw-bold mb-1">Min Stats</div>
             {% for field, label in stat_fields %}
@@ -108,6 +138,12 @@
 
             <input type="hidden" name="sort"  value="{{ sort }}">
             <input type="hidden" name="order" value="{{ order }}">
+            {% if assign_char %}
+              {# keep the slot-assignment context across filter changes #}
+              <input type="hidden" name="assign_char"   value="{{ assign_char.id }}">
+              <input type="hidden" name="assign_slot"   value="{{ assign_slot }}">
+              <input type="hidden" name="assign_wanted" value="{{ assign_wanted }}">
+            {% endif %}
             <button type="submit" class="btn btn-primary btn-sm w-100">Search</button>
           </div>
         </div>
@@ -117,6 +153,26 @@
 
   {# ── Results ── #}
   <div class="col-lg-9 col-xl-10">
+
+    {% if assign_char %}
+    <div class="card bg-dark border-warning mb-2">
+      <div class="card-body py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <i class="bi bi-box-arrow-in-down text-warning me-1"></i>
+          Assigning to <strong class="text-warning">{{ assign_char.name }}</strong>
+          — <strong>{{ assign_slot.replace('_', ' ') }}</strong>
+          <span class="text-secondary">({{ 'Wanted' if assign_wanted == '1' else 'Current' }} Gear)</span>
+          <div class="text-secondary small">
+            Filtered to gear {{ assign_char.name }} can use. Adjust filters at left, then click
+            <strong>Assign</strong> on a row.
+          </div>
+        </div>
+        <a href="{{ url_for('character_detail', char_id=assign_char.id) }}"
+           class="btn btn-sm btn-outline-secondary">Cancel</a>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="d-flex align-items-center justify-content-between mb-1">
       <span class="text-secondary small">{{ total }} result{% if total!=1 %}s{% endif %}{% if total==500 %} (capped at 500){% endif %}</span>
     </div>
@@ -133,6 +189,7 @@
                 {% if sort==col %}{{ '▲' if order=='asc' else '▼' }}{% endif %}
               </a>
             {% endmacro %}
+            {% if assign_char %}<th></th>{% endif %}
             <th>{{ sort_link('name','Name') }}</th>
             <th>{{ sort_link('item_type','Type') }}</th>
             <th>{{ sort_link('wear_loc','Slot') }}</th>
@@ -152,6 +209,19 @@
         <tbody>
         {% for item in items %}
           <tr class="item-row" onclick="window.location='{{ url_for('item_detail', item_id=item.id) }}'">
+            {% if assign_char %}
+            <td onclick="event.stopPropagation()">
+              <form method="post" action="{{ url_for('set_slot', char_id=assign_char.id) }}">
+                <input type="hidden" name="slot_name" value="{{ assign_slot }}">
+                <input type="hidden" name="is_wanted" value="{{ assign_wanted }}">
+                <input type="hidden" name="item_id"   value="{{ item.id }}">
+                <button class="btn btn-sm btn-warning py-0 px-2" style="font-size:0.72rem"
+                        title="Assign to {{ assign_char.name }}'s {{ assign_slot.replace('_', ' ') }}">
+                  Assign
+                </button>
+              </form>
+            </td>
+            {% endif %}
             <td>
               {% if item.is_oog %}<span class="flag-oog" title="Out of Game"><i class="bi bi-x-circle-fill me-1"></i></span>{% endif %}
               {% if item.is_pkill %}<span class="flag-pk" title="PK Only"><i class="bi bi-shield-fill-x me-1"></i></span>{% endif %}
@@ -182,7 +252,7 @@
             <td class="text-secondary" style="max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:0.72rem">{{ item.flags }}</td>
           </tr>
         {% else %}
-          <tr><td colspan="20" class="text-center text-secondary py-4">No items found. Try adjusting filters or import a database file.</td></tr>
+          <tr><td colspan="{{ 21 if assign_char else 20 }}" class="text-center text-secondary py-4">No items found. Try adjusting filters or import a database file.</td></tr>
         {% endfor %}
         </tbody>
       </table>

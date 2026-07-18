@@ -147,11 +147,20 @@
 
             {# Action buttons #}
             <div class="d-flex gap-1 flex-shrink-0">
-              <button class="btn btn-sm btn-outline-secondary py-0 px-1"
-                      onclick="openPicker('{{ slot_name }}', '{{ slot_key }}', {{ is_wanted }})"
-                      title="Assign item">
+              <a class="btn btn-sm btn-outline-secondary py-0 px-1"
+                 href="{{ url_for('items',
+                                  wear_loc=slot_key,
+                                  cls=char.char_class,
+                                  race=char.race,
+                                  sex=char.sex,
+                                  align=char.alignment or 'Neutral',
+                                  lmax=char.level,
+                                  assign_char=char.id,
+                                  assign_slot=slot_name,
+                                  assign_wanted=is_wanted) }}"
+                 title="Browse gear {{ char.name }} can use for this slot">
                 <i class="bi bi-search"></i>
-              </button>
+              </a>
               {% if has_item %}
               <form method="post" action="{{ url_for('set_slot', char_id=char.id) }}">
                 <input type="hidden" name="slot_name"  value="{{ slot_name }}">
@@ -172,36 +181,6 @@
   </div>
   {% endfor %}
 </div>
-
-
-{# ── Item picker modal ── #}
-<div class="modal fade" id="pickerModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content bg-dark border-secondary">
-      <div class="modal-header py-2">
-        <h6 class="modal-title">Assign Item to <span id="pickerSlotLabel"></span></h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body p-2">
-        <div class="d-flex gap-2 mb-2">
-          <input type="text" id="pickerSearch" class="form-control form-control-sm"
-                 placeholder="Search by name…" oninput="searchItems()">
-          <input type="hidden" id="pickerSlotName">
-          <input type="hidden" id="pickerIsWanted">
-          <input type="hidden" id="pickerWearLoc">
-        </div>
-        <div id="pickerResults" class="list-group list-group-flush" style="font-size:0.82rem"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# Hidden form used by picker to submit selection #}
-<form method="post" action="{{ url_for('set_slot', char_id=char.id) }}" id="pickerForm">
-  <input type="hidden" name="slot_name" id="pf_slot_name">
-  <input type="hidden" name="item_id"   id="pf_item_id">
-  <input type="hidden" name="is_wanted" id="pf_is_wanted">
-</form>
 
 
 {# ── Edit character modal ── #}
@@ -284,14 +263,7 @@
 
 {% block scripts %}
 <script>
-let pickerModal = null;
-
 document.addEventListener('DOMContentLoaded', () => {
-  const pickerEl = document.getElementById('pickerModal');
-  pickerModal = new bootstrap.Modal(pickerEl);
-  pickerEl.addEventListener('shown.bs.modal', () => {
-    document.getElementById('pickerSearch').focus();
-  });
   initCollapsibleSlots();
 });
 
@@ -354,55 +326,5 @@ document.getElementById('levelingSpells').addEventListener('change', function() 
   });
 });
 
-function openPicker(slotName, wearLoc, isWanted) {
-  document.getElementById('pickerSlotName').value = slotName;
-  document.getElementById('pickerIsWanted').value  = isWanted;
-  document.getElementById('pickerWearLoc').value   = wearLoc;
-  document.getElementById('pickerSlotLabel').textContent = slotName.replace('_', ' ');
-  document.getElementById('pickerSearch').value = '';
-  document.getElementById('pickerResults').innerHTML = '<div class="text-secondary p-2 small">Type to search…</div>';
-  pickerModal.show();
-}
-
-let searchTimer = null;
-function searchItems() {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(_doSearch, 250);
-}
-
-function _doSearch() {
-  const q       = document.getElementById('pickerSearch').value.trim();
-  const wearLoc = document.getElementById('pickerWearLoc').value;
-  if (q.length < 1) return;
-
-  const url = `/api/items?q=${encodeURIComponent(q)}&wear_loc=${encodeURIComponent(wearLoc)}`;
-  fetch(url)
-    .then(r => r.json())
-    .then(data => {
-      const el = document.getElementById('pickerResults');
-      if (!data.length) {
-        el.innerHTML = '<div class="list-group-item bg-dark text-secondary">No results</div>';
-        return;
-      }
-      el.innerHTML = data.map(item => `
-        <button type="button"
-          class="list-group-item list-group-item-action bg-dark text-light border-secondary py-1"
-          onclick="pickItem(${item.id})">
-          <strong>${item.name}</strong>
-          <span class="text-secondary ms-2 small">${item.item_type} · ${item.wear_loc} · lv ${item.level}</span>
-        </button>
-      `).join('');
-    });
-}
-
-function pickItem(itemId) {
-  const slotName = document.getElementById('pickerSlotName').value;
-  const isWanted = document.getElementById('pickerIsWanted').value;
-  document.getElementById('pf_slot_name').value = slotName;
-  document.getElementById('pf_item_id').value   = itemId;
-  document.getElementById('pf_is_wanted').value = isWanted;
-  pickerModal.hide();
-  document.getElementById('pickerForm').submit();
-}
 </script>
 {% endblock %}

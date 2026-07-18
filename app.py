@@ -25,6 +25,8 @@ RACES = [
 
 SEXES = ['Male', 'Female', 'Its']
 
+ALIGNMENTS = ['Good', 'Neutral', 'Evil']
+
 # Wear slots in display order; (slot_key, label, max_count)
 WEAR_SLOTS = [
     ('light',   'Light',         1),
@@ -169,6 +171,26 @@ def items():
             clauses.append("antis NOT LIKE ?")
             params.append(f'%anti-{c.strip()}%')
 
+    # ---- sex filter (anti-flag: anti-Male / anti-Female / anti-Its) ----
+    sex_filter = request.args.get('sex', '').strip()
+    if sex_filter:
+        clauses.append("antis NOT LIKE ?")
+        params.append(f'%anti-{sex_filter}%')
+
+    # ---- alignment filter (anti-flag: anti-Good / anti-Neutral / anti-Evil) ----
+    align_filter = request.args.get('align', '').strip()
+    if align_filter:
+        clauses.append("antis NOT LIKE ?")
+        params.append(f'%anti-{align_filter}%')
+
+    # ---- race filter ----
+    # races is a space-separated allow-list; blank means "no restriction".
+    # Pad both sides so 'Elf' doesn't match 'Half-Elf'.
+    race_filter = request.args.get('race', '').strip()
+    if race_filter:
+        clauses.append("(races = '' OR ' ' || races || ' ' LIKE ?)")
+        params.append(f'% {race_filter} %')
+
     # ---- flag toggles ----
     show_oog   = request.args.get('show_oog',   '0') == '1'
     show_pk    = request.args.get('show_pk',    '0') == '1'
@@ -204,11 +226,24 @@ def items():
 
     total = db.execute(f"SELECT COUNT(*) FROM items {where}", params).fetchone()[0]
 
+    # ---- slot-assignment context ----
+    # When opened from a character's gear slot, carry that context so each
+    # row can be assigned straight back to the slot.
+    assign_char = None
+    assign_slot = request.args.get('assign_slot', '').strip()
+    if request.args.get('assign_char', '').strip().isdigit() and assign_slot:
+        assign_char = db.execute(
+            "SELECT * FROM characters WHERE id=?",
+            (int(request.args['assign_char']),)
+        ).fetchone()
+
     return render_template('items.html',
         items=rows, types=types, locs=locs,
         args=request.args, stat_fields=STAT_FIELDS,
         total=total, sort=sort, order=order,
-        classes=CLASSES)
+        classes=CLASSES, sexes=SEXES, races=RACES, alignments=ALIGNMENTS,
+        assign_char=assign_char, assign_slot=assign_slot,
+        assign_wanted=request.args.get('assign_wanted', '0'))
 
 
 @app.route('/item/<int:item_id>')

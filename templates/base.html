@@ -127,6 +127,29 @@
 
     .totals-row th, .totals-row td { font-size: 0.8rem; padding: 2px 6px; }
     .filter-sidebar { position: sticky; top: 56px; max-height: calc(100vh - 70px); overflow-y: auto; }
+
+    /* ── Sticky table headers ──
+       .table-responsive establishes its own scroll context, so the header
+       sticks to that scrollport rather than the viewport. Constraining the
+       height makes the table the vertical scroller, keeping headers in view.
+       --sticky-offset is the space above the table (set per view); JS refines
+       it to the exact pixel when it can measure the viewport. */
+    .table-responsive.sticky-head {
+      overflow: auto;
+      max-height: calc(100vh - var(--sticky-offset, 140px));
+      min-height: 240px;  /* never collapse, whatever the viewport reports */
+    }
+    .table-responsive.sticky-head thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      /* cells are transparent in this theme — headers need to be opaque */
+      background: #23233a;
+      box-shadow: inset 0 -1px 0 #3a3a56;
+      color: var(--rod-gold);
+    }
+    .table-responsive.sticky-head thead th a { color: inherit; }
+    .table-responsive.sticky-head thead th a:hover { color: #f4dd8f; }
   </style>
 </head>
 <body>

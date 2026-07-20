@@ -177,14 +177,15 @@
       <span class="text-secondary small">{{ total }} result{% if total!=1 %}s{% endif %}{% if total==500 %} (capped at 500){% endif %}</span>
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive sticky-head" id="itemTableWrap"
+         style="--sticky-offset: {{ '210px' if assign_char else '135px' }}">
       <table class="table table-sm table-dark table-hover align-middle mb-0" style="font-size:0.8rem">
-        <thead class="table-secondary">
+        <thead>
           <tr>
             {% macro sort_link(col, label) %}
               {% set new_order = 'desc' if (sort==col and order=='asc') else 'asc' %}
               <a href="{{ url_for('items', **dict(args.to_dict(), sort=col, order=new_order)) }}"
-                 class="text-dark text-decoration-none">
+                 class="text-decoration-none">
                 {{ label }}
                 {% if sort==col %}{{ '▲' if order=='asc' else '▼' }}{% endif %}
               </a>
@@ -259,4 +260,22 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Refine the table's scroll height to the exact pixel. The CSS --sticky-offset
+// already gives a working approximation, so bail out rather than guess if the
+// viewport height isn't reportable — never leave the table a collapsed sliver.
+function sizeItemTable() {
+  const wrap = document.getElementById('itemTableWrap');
+  if (!wrap) return;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (vh < 300) return;  // unreliable/tiny viewport — keep the CSS fallback
+  const top = wrap.getBoundingClientRect().top + window.scrollY;
+  wrap.style.maxHeight = (vh - top - 12) + 'px';
+}
+document.addEventListener('DOMContentLoaded', sizeItemTable);
+window.addEventListener('resize', sizeItemTable);
+</script>
 {% endblock %}

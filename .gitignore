@@ -2,6 +2,10 @@
 *.db
 rod.db
 
+# Database backups (rod.db.bak-YYYYMMDD-HHMMSS)
+*.bak
+*.bak-*
+
 # Scraped reference content (community wikis — keep local)
 reference/
 

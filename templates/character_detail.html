@@ -70,11 +70,19 @@
           </div>
           {% endfor %}
         </div>
-        <div class="d-flex justify-content-between align-items-center" style="font-size:0.7rem;margin-top:4px">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.7rem;margin-top:4px">
           <span class="text-secondary">Row 1 = current total (base + gear) &nbsp;|&nbsp; Row 2 = wanted total (→ if different)</span>
-          <div class="form-check form-switch mb-0 ms-3">
-            <input class="form-check-input" type="checkbox" id="levelingSpells" role="switch">
-            <label class="form-check-label text-secondary" for="levelingSpells">Leveling Spells</label>
+          <div class="d-flex gap-3">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="levelingSpells" role="switch">
+              <label class="form-check-label text-secondary" for="levelingSpells"
+                     title="Leveling buffs: +2 to STR/DEX/INT/WIS/CON/CHA">Leveling Spells</label>
+            </div>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="thoricBlessing" role="switch">
+              <label class="form-check-label text-secondary" for="thoricBlessing"
+                     title="Thoric's Blessing (available through level 20): +3 to STR/DEX/INT/WIS/CON/CHA">Thoric's Blessing</label>
+            </div>
           </div>
         </div>
       </div>
@@ -265,6 +273,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   initCollapsibleSlots();
+  initBuffToggles();
 });
 
 function initCollapsibleSlots() {
@@ -311,20 +320,57 @@ function initCollapsibleSlots() {
   });
 }
 
+// Stat buffs affecting STR/DEX/INT/WIS/CON/CHA. Multiple buffs stack, so a
+// single recompute sums every active bonus rather than each toggle setting
+// the value on its own (which would clobber the others).
 const SPELL_FIELDS = new Set(['str_b','dex_b','int_b','wis_b','con_b','cha_b']);
+const BUFFS = [
+  { id: 'levelingSpells', bonus: 2 },   // leveling spells: +2
+  { id: 'thoricBlessing', bonus: 3 },   // Thoric's Blessing (<= lvl 20): +3
+];
+const BUFF_KEY = 'rod.buffs.' + {{ char.id }};
 
-document.getElementById('levelingSpells').addEventListener('change', function() {
-  const bonus = this.checked ? 2 : 0;
+function initBuffToggles() {
+  // restore saved state for this character, then wire up + apply
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(BUFF_KEY)) || {}; } catch (e) {}
+  BUFFS.forEach(b => {
+    const el = document.getElementById(b.id);
+    if (!el) return;
+    el.checked = !!saved[b.id];
+    el.addEventListener('change', () => { persistBuffs(); applyBuffs(); });
+  });
+  applyBuffs();
+}
+
+function activeBuffBonus() {
+  return BUFFS.reduce((sum, b) => {
+    const el = document.getElementById(b.id);
+    return sum + (el && el.checked ? b.bonus : 0);
+  }, 0);
+}
+
+function persistBuffs() {
+  const state = {};
+  BUFFS.forEach(b => {
+    const el = document.getElementById(b.id);
+    if (el) state[b.id] = el.checked;
+  });
+  try { localStorage.setItem(BUFF_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function applyBuffs() {
+  const bonus = activeBuffBonus();
   document.querySelectorAll('[data-stat]').forEach(col => {
     if (!SPELL_FIELDS.has(col.dataset.stat)) return;
     const cur  = parseInt(col.dataset.cur)  + bonus;
     const want = parseInt(col.dataset.want) + bonus;
-    col.querySelector('.stat-cur-val').textContent  = cur  || '—';
+    col.querySelector('.stat-cur-val').textContent = cur || '—';
     if (col.dataset.wantDiffers === '1') {
       col.querySelector('.stat-want-val').textContent = '→' + (want || '0');
     }
   });
-});
+}
 
 </script>
 {% endblock %}

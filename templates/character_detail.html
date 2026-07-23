@@ -74,12 +74,14 @@
           <span class="text-secondary">Row 1 = current total (base + gear) &nbsp;|&nbsp; Row 2 = wanted total (→ if different)</span>
           <div class="d-flex gap-3">
             <div class="form-check form-switch mb-0">
-              <input class="form-check-input" type="checkbox" id="levelingSpells" role="switch">
+              <input class="form-check-input" type="checkbox" id="levelingSpells" role="switch"
+                     {% if char.buff_leveling %}checked{% endif %}>
               <label class="form-check-label text-secondary" for="levelingSpells"
                      title="Leveling buffs: +2 to STR/DEX/INT/WIS/CON/CHA">Leveling Spells</label>
             </div>
             <div class="form-check form-switch mb-0">
-              <input class="form-check-input" type="checkbox" id="thoricBlessing" role="switch">
+              <input class="form-check-input" type="checkbox" id="thoricBlessing" role="switch"
+                     {% if char.buff_thoric %}checked{% endif %}>
               <label class="form-check-label text-secondary" for="thoricBlessing"
                      title="Thoric's Blessing (available through level 20): +3 to STR/DEX/INT/WIS/CON/CHA">Thoric's Blessing</label>
             </div>
@@ -328,17 +330,14 @@ const BUFFS = [
   { id: 'levelingSpells', bonus: 2 },   // leveling spells: +2
   { id: 'thoricBlessing', bonus: 3 },   // Thoric's Blessing (<= lvl 20): +3
 ];
-const BUFF_KEY = 'rod.buffs.' + {{ char.id }};
+const BUFF_URL = '{{ url_for("set_buff", char_id=char.id) }}';
 
 function initBuffToggles() {
-  // restore saved state for this character, then wire up + apply
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(BUFF_KEY)) || {}; } catch (e) {}
+  // Checkboxes are rendered pre-checked from the DB. Wire up + apply.
   BUFFS.forEach(b => {
     const el = document.getElementById(b.id);
     if (!el) return;
-    el.checked = !!saved[b.id];
-    el.addEventListener('change', () => { persistBuffs(); applyBuffs(); });
+    el.addEventListener('change', () => { persistBuff(b.id, el.checked); applyBuffs(); });
   });
   applyBuffs();
 }
@@ -350,13 +349,10 @@ function activeBuffBonus() {
   }, 0);
 }
 
-function persistBuffs() {
-  const state = {};
-  BUFFS.forEach(b => {
-    const el = document.getElementById(b.id);
-    if (el) state[b.id] = el.checked;
-  });
-  try { localStorage.setItem(BUFF_KEY, JSON.stringify(state)); } catch (e) {}
+function persistBuff(buffId, checked) {
+  // Save to the server so the toggle syncs across devices.
+  const body = new URLSearchParams({ buff: buffId, checked: checked ? '1' : '0' });
+  fetch(BUFF_URL, { method: 'POST', body }).catch(() => {});
 }
 
 function applyBuffs() {

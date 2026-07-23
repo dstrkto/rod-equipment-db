@@ -706,6 +706,28 @@ def duplicate_character(char_id):
         return redirect(url_for('character_detail', char_id=char_id))
 
 
+# ── Buff toggles (stat-preview switches, persisted per character) ─────────────
+
+# Maps the front-end toggle id to its characters column.
+BUFF_COLUMNS = {
+    'levelingSpells': 'buff_leveling',
+    'thoricBlessing': 'buff_thoric',
+}
+
+@app.route('/characters/<int:char_id>/buff', methods=['POST'])
+def set_buff(char_id):
+    buff    = request.form.get('buff', '')
+    column  = BUFF_COLUMNS.get(buff)
+    if column is None:
+        return ('unknown buff', 400)
+    checked = 1 if request.form.get('checked') == '1' else 0
+    db = get_db()
+    # column comes from a fixed whitelist above, so this f-string is safe
+    db.execute(f"UPDATE characters SET {column}=? WHERE id=?", (checked, char_id))
+    db.commit()
+    return ('', 204)
+
+
 # ── Slot assignment ───────────────────────────────────────────────────────────
 
 @app.route('/characters/<int:char_id>/slot', methods=['POST'])

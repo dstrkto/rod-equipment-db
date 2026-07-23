@@ -59,7 +59,11 @@ CREATE TABLE IF NOT EXISTS characters (
     base_lck   INTEGER DEFAULT 0,
     base_hp    INTEGER DEFAULT 0,
     base_mana  INTEGER DEFAULT 0,
-    base_move  INTEGER DEFAULT 0
+    base_move  INTEGER DEFAULT 0,
+    alignment  TEXT DEFAULT 'Neutral',   -- Good / Neutral / Evil
+    -- Stat-preview buff toggles (persist across devices); see character_detail
+    buff_leveling INTEGER DEFAULT 0,      -- leveling spells: +2 to 6 stats
+    buff_thoric   INTEGER DEFAULT 0       -- Thoric's Blessing (<=lvl 20): +3
 );
 
 -- One row per slot per character; is_wanted=0 → current equip, is_wanted=1 → wanted equip

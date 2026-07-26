@@ -124,7 +124,7 @@
             {# Slot label — only show for first index; links to pre-filtered item DB #}
             <div style="width:110px;font-size:0.75rem;flex-shrink:0">
               {% if idx == 0 %}
-              <a href="{{ url_for('items', wear_loc=slot_key, cls=char.char_class, lmax=char.level) }}"
+              <a href="{{ url_for('items', wear_loc=slot_key, cls=char.char_class, lmax=char.level, show_gloried='1') }}"
                  class="slot-db-link text-secondary"
                  title="Browse {{ slot_label }} gear usable by {{ char.name }}">{{ slot_label }}</a>
               {% endif %}
@@ -165,6 +165,7 @@
                                   sex=char.sex,
                                   align=char.alignment or 'Neutral',
                                   lmax=char.level,
+                                  show_gloried='1',
                                   assign_char=char.id,
                                   assign_slot=slot_name,
                                   assign_wanted=is_wanted) }}"
@@ -295,7 +296,9 @@ function initCollapsibleSlots() {
     const collapsible = cards.slice(visibleCount);
     if (collapsible.length === 0) return;
 
-    const collapseId = 'cg-' + group.dataset.slotGroup;
+    // Sanitize: slot keys like '*' (wield) are invalid in a CSS/#id selector,
+    // which silently breaks Bootstrap's data-bs-target toggle.
+    const collapseId = 'cg-' + group.dataset.slotGroup.replace(/[^a-z0-9_-]/gi, '_');
     const collapseDiv = document.createElement('div');
     collapseDiv.className = 'collapse';
     collapseDiv.id = collapseId;

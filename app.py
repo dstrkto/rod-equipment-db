@@ -205,14 +205,17 @@ def items():
 
     # ---- sort ----
     sort = request.args.get('sort', 'name')
-    order = request.args.get('order', 'asc')
     safe_sort_cols = {'name','level_min','item_type','wear_loc','hr','dr','hp','mana',
                       'str_b','dex_b','int_b','wis_b','con_b','cha_b','lck_b','move_b',
-                      'ac','gold','area'}
+                      'ac','gold','area','flags'}
     if sort not in safe_sort_cols:
         sort = 'name'
+    # Name landing reads best A→Z; every other column defaults to descending
+    # (highest first). UI column clicks always pass an explicit order.
+    default_order = 'asc' if sort == 'name' else 'desc'
+    order = request.args.get('order', default_order)
     if order not in ('asc', 'desc'):
-        order = 'asc'
+        order = default_order
 
     where = ('WHERE ' + ' AND '.join(clauses)) if clauses else ''
     sql = f"SELECT * FROM items {where} ORDER BY {sort} {order.upper()} LIMIT 500"

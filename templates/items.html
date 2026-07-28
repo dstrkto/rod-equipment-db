@@ -183,7 +183,8 @@
         <thead>
           <tr>
             {% macro sort_link(col, label) %}
-              {% set new_order = 'desc' if (sort==col and order=='asc') else 'asc' %}
+              {# first click on a column sorts descending, then toggles to ascending #}
+              {% set new_order = 'asc' if (sort==col and order=='desc') else 'desc' %}
               <a href="{{ url_for('items', **dict(args.to_dict(), sort=col, order=new_order)) }}"
                  class="text-decoration-none">
                 {{ label }}
@@ -200,11 +201,16 @@
             <th>{{ sort_link('hp','HP') }}</th>
             <th>{{ sort_link('mana','Mana') }}</th>
             <th>{{ sort_link('ac','AC') }}</th>
-            <th>STR</th><th>DEX</th><th>INT</th>
-            <th>WIS</th><th>CON</th><th>CHA</th><th>LCK</th>
+            <th>{{ sort_link('str_b','STR') }}</th>
+            <th>{{ sort_link('dex_b','DEX') }}</th>
+            <th>{{ sort_link('int_b','INT') }}</th>
+            <th>{{ sort_link('wis_b','WIS') }}</th>
+            <th>{{ sort_link('con_b','CON') }}</th>
+            <th>{{ sort_link('cha_b','CHA') }}</th>
+            <th>{{ sort_link('lck_b','LCK') }}</th>
             <th>{{ sort_link('move_b','Mv') }}</th>
             <th>{{ sort_link('area','Area') }}</th>
-            <th>Flags</th>
+            <th>{{ sort_link('flags','Flags') }}</th>
           </tr>
         </thead>
         <tbody>

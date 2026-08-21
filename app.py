@@ -791,6 +791,81 @@ def copy_to_wanted(char_id):
     return redirect(url_for('character_detail', char_id=char_id))
 
 
+# ── Gear optimizer ────────────────────────────────────────────────────────────
+
+def _run_optimizer(char, goal):
+    """Load items, run the optimizer, return (result, cur_totals, opt_totals, caps)."""
+    import optimizer
+    db = get_db()
+    rows = db.execute("SELECT * FROM items").fetchall()
+    by_slot = {}
+    for r in rows:
+        by_slot.setdefault(r['wear_loc'], []).append(dict(r))
+
+    align_anti = ALIGN_TO_ANTI.get(char['alignment'] or 'Neutral', 'Neutral')
+    result = optimizer.optimize(dict(char), by_slot, WEAR_SLOTS, goal, align_anti)
+    opt_totals = optimizer.result_totals(result)
+    cap_rows = optimizer.cap_report(dict(char), opt_totals)
+
+    # current gear totals for comparison
+    cur_rows = db.execute("""
+        SELECT i.* FROM char_slots cs JOIN items i ON cs.item_id = i.id
+        WHERE cs.char_id=? AND cs.is_wanted=0
+    """, (char['id'],)).fetchall()
+    cur_totals = {s: 0 for s in optimizer.ITEM_STATS}
+    for row in cur_rows:
+        for s in optimizer.ITEM_STATS:
+            cur_totals[s] += row[s] or 0
+    return result, cur_totals, opt_totals, cap_rows
+
+
+@app.route('/characters/<int:char_id>/optimize')
+def optimize_character(char_id):
+    import optimizer
+    db = get_db()
+    char = db.execute("SELECT * FROM characters WHERE id=?", (char_id,)).fetchone()
+    if char is None:
+        flash('Character not found.', 'danger')
+        return redirect(url_for('characters'))
+
+    goal = request.args.get('goal', 'balanced')
+    if goal not in optimizer.GOAL_KEYS:
+        goal = 'balanced'
+    result, cur_totals, opt_totals, cap_rows = _run_optimizer(char, goal)
+
+    return render_template('optimize.html',
+        char=char, goals=optimizer.GOALS, goal=goal,
+        result=result, wear_slots=WEAR_SLOTS,
+        cur_totals=cur_totals, opt_totals=opt_totals, cap_rows=cap_rows,
+        item_stats=optimizer.ITEM_STATS)
+
+
+@app.route('/characters/<int:char_id>/optimize/apply', methods=['POST'])
+def apply_optimization(char_id):
+    import optimizer
+    db = get_db()
+    char = db.execute("SELECT * FROM characters WHERE id=?", (char_id,)).fetchone()
+    if char is None:
+        flash('Character not found.', 'danger')
+        return redirect(url_for('characters'))
+
+    goal = request.form.get('goal', 'balanced')
+    if goal not in optimizer.GOAL_KEYS:
+        goal = 'balanced'
+    result, _c, _o, _r = _run_optimizer(char, goal)
+
+    db.execute("DELETE FROM char_slots WHERE char_id=? AND is_wanted=1", (char_id,))
+    for slot_name, item in result.items():
+        db.execute(
+            "INSERT INTO char_slots (char_id, slot_name, item_id, is_wanted) VALUES (?,?,?,1)",
+            (char_id, slot_name, item['id'])
+        )
+    db.commit()
+    label = dict(optimizer.GOALS).get(goal, goal)
+    flash(f'Optimized gear ({label}) saved to Wanted.', 'success')
+    return redirect(url_for('character_detail', char_id=char_id))
+
+
 # ── Item search (JSON for slot picker) ───────────────────────────────────────
 
 @app.route('/api/items')

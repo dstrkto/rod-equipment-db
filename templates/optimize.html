@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Optimize {{ char.name }} — RoD DB{% endblock %}
+
+{% block content %}
+{% set stat_labels = [('hp','HP'),('mana','Mana'),('move_b','Move'),('hr','HR'),('dr','DR'),
+                      ('ac','AC'),('str_b','STR'),('dex_b','DEX'),('int_b','INT'),
+                      ('wis_b','WIS'),('con_b','CON'),('cha_b','CHA'),('lck_b','LCK')] %}
+
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+  <div>
+    <h5 class="mb-0"><i class="bi bi-magic"></i> Gear Optimizer — {{ char.name }}</h5>
+    <div class="text-secondary small">
+      Lv {{ char.level }} {{ char.char_class }}{% if char.race %} · {{ char.race }}{% endif %}
+      {% if char.alignment %} · {{ char.alignment }}{% endif %}
+      {% if char.buff_leveling or char.buff_thoric %}
+        · <span class="text-info">buffs:{% if char.buff_leveling %} Leveling{% endif %}{% if char.buff_thoric %} Thoric{% endif %}</span>
+      {% else %}
+        · <span class="text-secondary">no buffs active</span>
+      {% endif %}
+    </div>
+  </div>
+  <a href="{{ url_for('character_detail', char_id=char.id) }}" class="btn btn-sm btn-outline-secondary">← Back to {{ char.name }}</a>
+</div>
+
+{# ── Goal selector ── #}
+<form method="get" class="mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-sm-8 col-md-6">
+      <label class="form-label small mb-0">Optimization goal</label>
+      <select name="goal" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for key, label in goals %}
+          <option value="{{ key }}" {% if key==goal %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <noscript><button class="btn btn-sm btn-primary">Run</button></noscript>
+    </div>
+  </div>
+</form>
+
+<div class="row g-3">
+  {# ── Left: required-stat caps ── #}
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header py-2 small fw-bold">Required stats (must reach cap)</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:0.82rem">
+          <thead><tr><th class="ps-3">Stat</th><th class="text-end">Total</th><th class="text-center">Cap</th><th class="text-center pe-3">Status</th></tr></thead>
+          <tbody>
+            {% for r in cap_rows %}
+            <tr>
+              <td class="ps-3">
+                {{ r.label }}
+                {% if r.is_primary %}<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">PRIME</span>{% endif %}
+              </td>
+              <td class="text-end fw-bold {{ 'stat-pos' if r.met else 'stat-neg' }}">{{ r.have }}</td>
+              <td class="text-center text-secondary">{{ r.cap if r.cap else '∞' }}</td>
+              <td class="text-center pe-3">
+                {% if r.cap is none %}
+                  <span class="text-info" title="No cap — stacks past shown value">stacks ∞</span>
+                {% elif r.met %}
+                  <span class="stat-pos"><i class="bi bi-check-circle-fill"></i>{% if r.over %} +{{ r.have - r.cap }} over{% endif %}</span>
+                {% else %}
+                  <span class="stat-neg"><i class="bi bi-exclamation-triangle-fill"></i> −{{ r.cap - r.have }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# gear totals: current vs optimized #}
+    <div class="card mb-3">
+      <div class="card-header py-2 small fw-bold">Gear totals — current vs optimized</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:0.82rem">
+          <thead><tr><th class="ps-3"></th><th class="text-end">Current</th><th class="text-end">Optimized</th><th class="text-end pe-3">Δ</th></tr></thead>
+          <tbody>
+            {% for f, label in stat_labels %}
+              {% set cur = cur_totals[f] %}{% set opt = opt_totals[f] %}
+              {% if cur or opt %}
+              {% set delta = opt - cur %}
+              <tr>
+                <td class="ps-3 text-secondary">{{ label }}</td>
+                <td class="text-end">{{ cur }}</td>
+                <td class="text-end fw-bold">{{ opt }}</td>
+                <td class="text-end pe-3 {{ 'stat-pos' if delta>0 else ('stat-neg' if delta<0 else 'text-secondary') }}">
+                  {{ '%+d'|format(delta) if delta else '—' }}
+                </td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('apply_optimization', char_id=char.id) }}">
+      <input type="hidden" name="goal" value="{{ goal }}">
+      <button class="btn btn-warning w-100" onclick="return confirm('Replace {{ char.name }}\'s Wanted gear with this optimized set?')">
+        <i class="bi bi-check2-square"></i> Apply to Wanted Gear
+      </button>
+    </form>
+    <div class="text-secondary small mt-1 text-center">Replaces the Wanted column; your Current gear is untouched.</div>
+  </div>
+
+  {# ── Right: suggested gear per slot ── #}
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header py-2 small fw-bold">Suggested best-in-slot ({{ result|length }} pieces)</div>
+      <div class="card-body p-2">
+        {% for slot_key, slot_label, max_count in wear_slots %}
+          {% set ns = namespace(shown=false) %}
+          {% for idx in range(max_count) %}
+            {% set item = result.get(slot_key ~ '_' ~ idx) %}
+            {% if item %}
+              {% set ns.shown = true %}
+              <div class="d-flex align-items-start gap-2 py-1 border-bottom border-secondary">
+                <div class="text-secondary flex-shrink-0" style="width:90px;font-size:0.72rem">
+                  {% if idx == 0 %}{{ slot_label }}{% endif %}
+                </div>
+                <div class="flex-grow-1">
+                  <a href="{{ url_for('item_detail', item_id=item.id) }}" target="_blank"
+                     class="text-decoration-none fw-bold small{{ ' flag-gloried' if item.is_gloried else '' }}">
+                    {% if item.is_gloried %}<i class="bi bi-stars" style="font-size:0.7rem"></i> {% endif %}{{ item.name }}
+                  </a>
+                  <div class="d-flex flex-wrap gap-1" style="font-size:0.7rem">
+                    {% for sf, sl in [('hr','HR'),('dr','DR'),('hp','HP'),('mana','Mana'),('ac','AC'),
+                                      ('str_b','STR'),('dex_b','DEX'),('int_b','INT'),('wis_b','WIS'),
+                                      ('con_b','CON'),('cha_b','CHA'),('lck_b','LCK'),('move_b','Mv')] %}
+                      {% if item[sf] %}<span class="{{ 'stat-pos' if (item[sf]>0) != (sf=='ac') else 'stat-neg' }}">{{ sl }}{{ '%+d'|format(item[sf]) }}</span>{% endif %}
+                    {% endfor %}
+                    <span class="text-secondary">lv{{ item.level }}</span>
+                    {% if item.area %}<span class="text-secondary">· {{ item.area }}</span>{% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+          {% if not ns.shown %}
+            <div class="d-flex gap-2 py-1 border-bottom border-secondary" style="font-size:0.78rem">
+              <div class="text-secondary flex-shrink-0" style="width:90px">{{ slot_label }}</div>
+              <div class="text-secondary fst-italic">no eligible item</div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

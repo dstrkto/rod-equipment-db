@@ -165,15 +165,15 @@ def items():
     # ---- class filter (anti-flag search) ----
     cls_filter = request.args.get('cls', '').strip()
     if cls_filter:
-        # exclude items that are anti- for this class; a prestige class
-        # ("Prestige: Druid/Cleric") is blocked by either component's anti-flag
+        # In RoD the PRIMARY (first-listed) class governs what equipment a
+        # prestige character can wear — a Druid/Cleric wears Druid gear, so
+        # anti-Cleric items are still usable. Filter on that class only.
         if cls_filter.startswith('Prestige:'):
-            components = cls_filter.split(':', 1)[1].strip().split('/')
+            eq_class = cls_filter.split(':', 1)[1].strip().split('/')[0].strip()
         else:
-            components = [cls_filter]
-        for c in components:
-            clauses.append("antis NOT LIKE ?")
-            params.append(f'%anti-{c.strip()}%')
+            eq_class = cls_filter
+        clauses.append("antis NOT LIKE ?")
+        params.append(f'%anti-{eq_class}%')
 
     # ---- sex filter (anti-flag: anti-Male / anti-Female / anti-Its) ----
     sex_filter = request.args.get('sex', '').strip()

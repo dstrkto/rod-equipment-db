@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS characters (
     base_hp    INTEGER DEFAULT 0,
     base_mana  INTEGER DEFAULT 0,
     base_move  INTEGER DEFAULT 0,
-    alignment  TEXT DEFAULT 'Neutral',   -- Good / Neutral / Evil
+    alignment  TEXT DEFAULT 'Neutral',   -- Devout / Neutral / Evil (Devout maps to item anti-Good)
     -- Stat-preview buff toggles (persist across devices); see character_detail
     buff_leveling INTEGER DEFAULT 0,      -- leveling spells: +2 to 6 stats
     buff_thoric   INTEGER DEFAULT 0       -- Thoric's Blessing (<=lvl 20): +3

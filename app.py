@@ -25,7 +25,11 @@ RACES = [
 
 SEXES = ['Male', 'Female', 'Its']
 
-ALIGNMENTS = ['Good', 'Neutral', 'Evil']
+ALIGNMENTS = ['Devout', 'Neutral', 'Evil']
+
+# Characters use the display vocabulary above, but item anti-flags use the
+# in-game token 'anti-Good' for the good alignment. Translate when filtering.
+ALIGN_TO_ANTI = {'Devout': 'Good', 'Neutral': 'Neutral', 'Evil': 'Evil'}
 
 # Wear slots in display order; (slot_key, label, max_count)
 WEAR_SLOTS = [
@@ -177,11 +181,13 @@ def items():
         clauses.append("antis NOT LIKE ?")
         params.append(f'%anti-{sex_filter}%')
 
-    # ---- alignment filter (anti-flag: anti-Good / anti-Neutral / anti-Evil) ----
+    # ---- alignment filter ----
+    # Character/UI value is Devout/Neutral/Evil; item flags use anti-Good etc.
     align_filter = request.args.get('align', '').strip()
     if align_filter:
+        anti = ALIGN_TO_ANTI.get(align_filter, align_filter)
         clauses.append("antis NOT LIKE ?")
-        params.append(f'%anti-{align_filter}%')
+        params.append(f'%anti-{anti}%')
 
     # ---- race filter ----
     # races is a space-separated allow-list; blank means "no restriction".
@@ -560,16 +566,17 @@ def new_character():
         try:
             db.execute("""
                 INSERT INTO characters
-                    (name, char_class, race, sex, level,
+                    (name, char_class, race, sex, level, alignment,
                      base_str, base_dex, base_int, base_wis, base_con,
                      base_cha, base_lck, base_hp, base_mana, base_move)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 name,
                 request.form.get('char_class',''),
                 request.form.get('race',''),
                 request.form.get('sex',''),
                 int(request.form.get('level', 50) or 50),
+                request.form.get('alignment', 'Neutral'),
                 int(request.form.get('base_str', 0) or 0),
                 int(request.form.get('base_dex', 0) or 0),
                 int(request.form.get('base_int', 0) or 0),
@@ -587,7 +594,8 @@ def new_character():
             return redirect(url_for('character_detail', char_id=char['id']))
         except sqlite3.IntegrityError:
             flash(f'A character named "{name}" already exists.', 'danger')
-    return render_template('new_character.html', classes=CLASSES, races=RACES, sexes=SEXES)
+    return render_template('new_character.html', classes=CLASSES, races=RACES,
+                           sexes=SEXES, alignments=ALIGNMENTS)
 
 
 @app.route('/characters/<int:char_id>')
@@ -629,7 +637,7 @@ def character_detail(char_id):
         current=current, wanted=wanted,
         cur_totals=cur_totals, want_totals=want_totals,
         stat_fields=STAT_FIELDS,
-        classes=CLASSES, races=RACES, sexes=SEXES)
+        classes=CLASSES, races=RACES, sexes=SEXES, alignments=ALIGNMENTS)
 
 
 @app.route('/characters/<int:char_id>/delete', methods=['POST'])
@@ -646,7 +654,7 @@ def edit_character(char_id):
     db = get_db()
     db.execute("""
         UPDATE characters SET
-            name=?, char_class=?, race=?, sex=?, level=?,
+            name=?, char_class=?, race=?, sex=?, level=?, alignment=?,
             base_str=?, base_dex=?, base_int=?, base_wis=?, base_con=?,
             base_cha=?, base_lck=?, base_hp=?, base_mana=?, base_move=?
         WHERE id=?
@@ -656,6 +664,7 @@ def edit_character(char_id):
         request.form.get('race',''),
         request.form.get('sex',''),
         int(request.form.get('level', 50) or 50),
+        request.form.get('alignment', 'Neutral'),
         int(request.form.get('base_str', 0) or 0),
         int(request.form.get('base_dex', 0) or 0),
         int(request.form.get('base_int', 0) or 0),
@@ -684,11 +693,11 @@ def duplicate_character(char_id):
     try:
         db.execute("""
             INSERT INTO characters
-                (name, char_class, race, sex, level,
+                (name, char_class, race, sex, level, alignment,
                  base_str, base_dex, base_int, base_wis, base_con,
                  base_cha, base_lck, base_hp, base_mana, base_move)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (new_name, src['char_class'], src['race'], src['sex'], src['level'],
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (new_name, src['char_class'], src['race'], src['sex'], src['level'], src['alignment'],
               src['base_str'], src['base_dex'], src['base_int'], src['base_wis'], src['base_con'],
               src['base_cha'], src['base_lck'], src['base_hp'], src['base_mana'], src['base_move']))
         new_id = db.execute("SELECT id FROM characters WHERE name=?", (new_name,)).fetchone()['id']

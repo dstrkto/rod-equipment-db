@@ -10,6 +10,7 @@
     <div class="text-secondary small">
       Lv {{ char.level }} {{ char.char_class }}{% if char.race %} · {{ char.race }}{% endif %}
       {% if char.sex %} · {{ char.sex }}{% endif %}
+      {% if char.alignment %} · {{ char.alignment }}{% endif %}
     </div>
   </div>
   <div class="d-flex gap-2 flex-wrap">
@@ -225,7 +226,7 @@
             </div>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-6">
+            <div class="col-4">
               <label class="form-label small">Class</label>
               <select name="char_class" class="form-select form-select-sm">
                 <option value="">— select —</option>
@@ -234,12 +235,20 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-6">
+            <div class="col-4">
               <label class="form-label small">Race</label>
               <select name="race" class="form-select form-select-sm">
                 <option value="">— select —</option>
                 {% for r in races %}
                   <option {% if char.race==r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label small">Alignment</label>
+              <select name="alignment" class="form-select form-select-sm">
+                {% for a in alignments %}
+                  <option {% if (char.alignment or 'Neutral')==a %}selected{% endif %}>{{ a }}</option>
                 {% endfor %}
               </select>
             </div>
